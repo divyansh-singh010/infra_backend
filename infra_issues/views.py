@@ -1,13 +1,14 @@
+import os
 import datetime
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import os
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from .models import InfraIssue
+from PIL import Image
 
 BASE_DIR = settings.BASE_DIR
 
@@ -25,22 +26,19 @@ def file_complaint(request):
     issue = data['issue']
     user = data['user']
 
-    # Check if image file is included in the request
-    if 'image' not in request.FILES:
-        return Response({'error': 'Image file is missing'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Save the image file
-    image_file = request.FILES['image']
-    # Here you can save the image file to your desired location or handle it as needed.
-    image_path = os.path.join(BASE_DIR, 'images', image_file.name)
-    with open(image_path, 'wb+') as destination:
-        for chunk in image_file.chunks():
-            destination.write(chunk)
+    # handle the image upload through the api
+    image_file = None
+    if 'image' in request.FILES:
+        image_file = request.FILES['image']
+        if image_file.name.endswith('.png'):
+            image = Image.open(image_file)
+            image = image.convert('RGB')
+            image_file.name = image_file.name.replace('.png', '.jpg')
 
     # Save other complaint details to the database
     date = datetime.date.today()
     InfraIssue.objects.create(
-        complex_name=complex_name, room=room, issue=issue, user=user, date=date)
+        complex_name=complex_name, room=room, issue=issue, user=user, date=date, image=image_file if 'image' in request.FILES else None)
 
     # Handle Google Sheets integration (unchanged from your original code)
     try:
@@ -60,7 +58,6 @@ def file_complaint(request):
         print('{0} cells updated.'.format(result.get('updatedCells')))
     except Exception as e:
         print(f"Error occurred: {str(e)}")
-        # Rollback database changes if any error occurs
         InfraIssue.objects.filter(
             complex_name=complex_name, room=room, issue=issue, user=user, date=date).delete()
         return Response({'error': f'Failed to file complaint. Error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -9,7 +9,8 @@ class InfraIssue(models.Model):
     issue = models.CharField(max_length=100)
     user = models.CharField(max_length=100)
     date = models.DateField()
-    image = models.ImageField(upload_to='infra_issues/images/', blank=True, null=True)
+    image = models.ImageField(
+        upload_to='images/', null=True, blank=True)
 
     def __str__(self):
         return self.complex_name + " - " + self.room + " - " + self.issue + " - " + self.user + " - " + str(self.date)
