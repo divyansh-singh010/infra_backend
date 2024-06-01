@@ -12,12 +12,14 @@ from PIL import Image
 
 BASE_DIR = settings.BASE_DIR
 
-
 @csrf_exempt
 @api_view(['POST'])
 def file_complaint(request):
     data = request.data
-    if 'complex_name' not in data or 'room' not in data or 'issue' not in data or 'user' not in data:
+    required_fields = ['complex_name', 'room', 'issue', 'user']
+
+    # Check if all required fields are present in the request data
+    if not all(field in data for field in required_fields):
         return Response({'error': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
     # Extracting data from the request
@@ -25,9 +27,9 @@ def file_complaint(request):
     room = data['room']
     issue = data['issue']
     user = data['user']
-
-    # handle the image upload through the api
     image_file = None
+
+    # Handle image upload
     if 'image' in request.FILES:
         image_file = request.FILES['image']
         if image_file.name.endswith('.png'):
@@ -35,31 +37,32 @@ def file_complaint(request):
             image = image.convert('RGB')
             image_file.name = image_file.name.replace('.png', '.jpg')
 
-    # Save other complaint details to the database
+    # Save complaint details to the database
     date = datetime.date.today()
-    InfraIssue.objects.create(
-        complex_name=complex_name, room=room, issue=issue, user=user, date=date, image=image_file if 'image' in request.FILES else None)
-
-    # Handle Google Sheets integration (unchanged from your original code)
     try:
-        credentials = service_account.Credentials.from_service_account_file(
-            os.path.join(BASE_DIR, 'infra_issues',
-                         'infra-app-420117-111af392d615.json'),
-            scopes=['https://www.googleapis.com/auth/spreadsheets']
-        )
-        service = build('sheets', 'v4', credentials=credentials)
-        spreadsheet_id = '1m8qfH4aT8PF4gt4xrt5KLwmOLfXCWT_elIT7Ka8WZ7I'
-        values = [
-            [complex_name, room, issue, user,
-                date.strftime('%d-%m-%Y'), 'Pending']
-        ]
-        result = service.spreadsheets().values().append(
-            spreadsheetId=spreadsheet_id, range='Sheet1', valueInputOption='RAW', body={'values': values}).execute()
-        print('{0} cells updated.'.format(result.get('updatedCells')))
+        InfraIssue.objects.create(
+            complex_name=complex_name, room=room, issue=issue, user=user, date=date, image=image_file)
+        return Response({'message': 'Complaint filed successfully'}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
-        InfraIssue.objects.filter(
-            complex_name=complex_name, room=room, issue=issue, user=user, date=date).delete()
-        return Response({'error': f'Failed to file complaint. Error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': f'Failed to save complaint to the database. Error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return Response({'message': 'Complaint filed successfully'}, status=status.HTTP_201_CREATED)
+    # Handle Google Sheets integration
+    # try:
+    #     credentials = service_account.Credentials.from_service_account_file(
+    #         os.path.join(BASE_DIR, 'infra_issues', 'infra-app-420117-111af392d615.json'),
+    #         scopes=['https://www.googleapis.com/auth/spreadsheets']
+    #     )
+    #     service = build('sheets', 'v4', credentials=credentials)
+    #     spreadsheet_id = '1m8qfH4aT8PF4gt4xrt5KLwmOLfXCWT_elIT7Ka8WZ7I'
+    #     values = [
+    #         [complex_name, room, issue, user, date.strftime('%d-%m-%Y'), 'Pending']
+    #     ]
+    #     result = service.spreadsheets().values().append(
+    #         spreadsheetId=spreadsheet_id, range='Sheet1', valueInputOption='RAW', body={'values': values}).execute()
+    #     print('{0} cells updated.'.format(result.get('updatedCells')))
+    # except Exception as e:
+    #     # Rollback the database transaction if Google Sheets integration fails
+    #     infra_issue.delete()
+    #     return Response({'error': f'Failed to file complaint. Error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # return Response({'message': 'Complaint filed successfully'}, status=status.HTTP_201_CREATED)
