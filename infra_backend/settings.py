@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
+from datetime import timedelta
 import os
 from pathlib import Path
 
@@ -23,14 +24,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-+uiouvsg113s!-u6o*5hsr(u52hizs(3r=q1u=uyh(^er@%z=n'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # In settings.py
 
-ALLOWED_HOSTS = ['10.17.7.63','*']
+ALLOWED_HOSTS = ['*']
 
+CSRF_TRUSTED_ORIGINS = ['https://infraportal.iitd.ac.in',
+                        'http://127.0.0.1', 'http://localhost', 'http://10.17.7.63']
 
-# Application definition
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT']
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -42,11 +48,13 @@ INSTALLED_APPS = [
     # INSTALLED APPS
     'infra_issues',
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -86,10 +94,25 @@ DATABASES = {
         'USER': 'admin',
         'PASSWORD': 'caic_2024',
         'HOST': 'localhost',
-        'PORT': '5432', 
+        'PORT': '5432',
     }
 }
 
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -115,9 +138,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
+
+USE_L10N = True
 
 USE_TZ = True
 
@@ -125,13 +150,28 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'api/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
-MEDIA_URL = '/media/'
+MEDIA_URL = 'api/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(weeks=18),
+    'REFRESH_TOKEN_LIFETIME': timedelta(weeks=18),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
